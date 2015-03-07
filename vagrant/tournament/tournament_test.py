@@ -91,6 +91,7 @@ def testReportMatches():
     reportMatch(id1, id2)
     reportMatch(id3, id4)
     standings = playerStandings()
+
     for (i, n, w, m) in standings:
         if m != 1:
             raise ValueError("Each player should have one match recorded.")
@@ -113,6 +114,7 @@ def testPairings():
     reportMatch(id1, id2)
     reportMatch(id3, id4)
     pairings = swissPairings()
+
     if len(pairings) != 2:
         raise ValueError(
             "For four players, swissPairings should return two pairs.")
