@@ -5,31 +5,48 @@
 
 import psycopg2
 
-
 def connect():
-    """Connect to the PostgreSQL database.  Returns a database connection object."""
-    
-    return psycopg2.connect("dbname=tournament")
+    """Returns a PostgreSQL DB connection to the tournament database.
+    """
 
+    try:
+        conn = psycopg2.connect("dbname=tournament")
+        return conn
+    except:
+        print "Unable to connect to tournament database."
 
+def db_wrapper(func):
+    """Wrapper function that connects to the PostgreSQL database, runs query from the wrapped function,
+    then commit the change to the database and closes the connection.
+    """
+
+    def func_wrapper(*args):
+        DB = connect()
+        cur = DB.cursor()
+        query = func(*args)
+        if len(query) == 2:
+            cur.execute(query[0], query[1])
+        else:
+            cur.execute(query[0])
+
+        DB.commit()
+        DB.close()
+
+    return func_wrapper
+
+@db_wrapper
 def deleteMatches():
     """Remove all the match records from the database."""
     
-    DB = connect()
-    cur = DB.cursor()
     query = "DELETE FROM matches;"
-    cur.execute(query)
-    DB.commit()
+    return [query]
 
-
+@db_wrapper
 def deletePlayers():
     """Remove all the player records from the database."""
     
-    DB = connect()
-    cur = DB.cursor()
     query = "DELETE FROM players;"
-    cur.execute(query)
-    DB.commit()
+    return [query]
 
 
 def countPlayers():
@@ -39,14 +56,13 @@ def countPlayers():
     cur = DB.cursor()
     query = " select count(id) as num FROM players;"
     cur.execute(query)
-    #import pdb; pdb.set_trace()
     count = cur.fetchone()
+    DB.close()
     if count:
-        print count
         return int(count[0])
     return 0
 
-
+@db_wrapper
 def registerPlayer(name):
     """Adds a player to the tournament database.
   
@@ -57,11 +73,8 @@ def registerPlayer(name):
       name: the player's full name (need not be unique).
     """
 
-    DB = connect()
-    cur = DB.cursor()
     query = " INSERT INTO players ( full_name ) values (%s);"
-    cur.execute(query, (name,))
-    DB.commit()
+    return [query, (name,)]
 
 
 def playerStandings():
@@ -95,9 +108,10 @@ def playerStandings():
         loss = cur.fetchone()
         playerStandings.append((int(player[0]), player[1], int(win[0]), int(win[0]) + int(loss[0])))
 
+    DB.close()
     return playerStandings
     
-
+@db_wrapper
 def reportMatch(winner, loser):
     """Records the outcome of a single match between two players.
 
@@ -106,11 +120,8 @@ def reportMatch(winner, loser):
       loser:  the id number of the player who lost
     """
  
-    DB = connect()
-    cur = DB.cursor()
     query = "INSERT INTO matches (winner, loser) values(%s, %s);"
-    cur.execute(query, (winner, loser))
-    DB.commit()
+    return [query, (winner, loser)]
  
 def swissPairings():
     """Returns a list of pairs of players for the next round of a match.
@@ -134,6 +145,7 @@ def swissPairings():
      where winner = players.id) as win from players, matches group by players.id order by win desc;"
     cur.execute(query)
     results = cur.fetchall()
+    DB.close()
     pairings = []
     i = 0
 
